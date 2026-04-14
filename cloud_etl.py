@@ -10,6 +10,7 @@ Liquid Scraper Architecture
 import os
 import asyncio
 import re
+import json
 import random
 import logging
 from math import ceil
@@ -32,25 +33,22 @@ GRAPHQL_URL     = "https://leetcode.com/graphql"
 RANKING_URL     = "https://leetcode.com/contest/api/ranking/{slug}/?pagination={page}&region=global"
 
 # ── JIT Batching Constants ────────────────────────────────────────────────────
-BATCH_SIZE       = 50          # Users per single GraphQL request (50 aliases)
-JIT_CONCURRENT   = 15          # Concurrent batch requests
+BATCH_SIZE       = 15          # Users per single GraphQL request (15 to avoid complexity limit)
+JIT_CONCURRENT   = 20          # Concurrent batch requests
 
 
-def _build_batched_query(usernames: list[str]) -> str:
+def _build_batched_query(usernames: list[str], is_cn: bool = False) -> str:
     """
-    Dynamically constructs a single GraphQL document with N aliased fields:
-      query {
-        user0: userContestRanking(username: "coder1") { rating }
-        user1: userContestRanking(username: "coder2") { rating }
-        ...
-      }
-    Usernames are escaped to prevent GraphQL injection.
+    Dynamically constructs a single GraphQL document with N aliased fields.
     """
     aliases = []
     for i, username in enumerate(usernames):
         # Escape backslashes first, then double-quotes
         safe = username.replace("\\", "\\\\").replace('"', '\\"')
-        aliases.append(f'  user{i}: userContestRanking(username: "{safe}") {{ rating attendedContestsCount }}')
+        if is_cn:
+            aliases.append(f'  user{i}: userContestRanking(userSlug: "{safe}") {{ ratingHistory contestHistory }}')
+        else:
+            aliases.append(f'  user{i}: userContestRankingHistory(username: "{safe}") {{ rating contest {{ titleSlug }} }}')
     return "query {\n" + "\n".join(aliases) + "\n}"
 
 
@@ -59,13 +57,13 @@ async def _fetch_batch(
     semaphore: asyncio.Semaphore,
     chunk: list[str],
     endpoint_url: str,
+    target_contest_slug: str,
+    is_cn: bool = False,
 ) -> dict[str, dict]:
     """
     Sends one batched GraphQL request for a chunk of 50 usernames.
-    Returns a partial dict {username: rating}.
-    On total failure, returns {} so the cascade falls back to 1500.
     """
-    query = _build_batched_query(chunk)
+    query = _build_batched_query(chunk, is_cn=is_cn)
     backoff = 3
 
     async with semaphore:
@@ -90,12 +88,45 @@ async def _fetch_batch(
                 result = {}
                 for i, username in enumerate(chunk):
                     node = data.get(f"user{i}")
-                    # node is None if user has never competed — cascade will default to 1500
-                    if node is not None and node.get("rating") is not None:
-                        result[username] = {
-                            "rating": float(node["rating"]),
-                            "k": int(node.get("attendedContestsCount", 0))
-                        }
+                    if node is not None:
+                        if is_cn:
+                            rh = json.loads(node["ratingHistory"]) if node.get("ratingHistory") else []
+                            ch = json.loads(node["contestHistory"]) if node.get("contestHistory") else []
+                            
+                            valid_history = []
+                            for r_val, c_dict in zip(rh, ch):
+                                if c_dict.get("contest", {}).get("titleSlug") == target_contest_slug:
+                                    break
+                                valid_history.append(r_val)
+                                
+                            if valid_history:
+                                result[username] = {
+                                    "rating": float(valid_history[-1]),
+                                    "k": len(valid_history)
+                                }
+                            else:
+                                result[username] = {
+                                    "rating": 1500.0,
+                                    "k": 0
+                                }
+                        else:
+                            history_array = node if isinstance(node, list) else []
+                            valid_history = []
+                            for c in history_array:
+                                if c.get("contest", {}).get("titleSlug") == target_contest_slug:
+                                    break
+                                valid_history.append(c.get("rating"))
+                                
+                            if valid_history:
+                                result[username] = {
+                                    "rating": float(valid_history[-1]),
+                                    "k": len(valid_history)
+                                }
+                            else:
+                                result[username] = {
+                                    "rating": 1500.0,
+                                    "k": 0
+                                }
                 return result
 
             except Exception as e:
@@ -106,6 +137,7 @@ async def _fetch_batch(
 
 async def fetch_exact_baselines(
     user_data_list: list[dict],
+    target_contest_slug: str,
     session: cffi_requests.AsyncSession | None = None,
 ) -> dict[str, dict]:
     """
@@ -134,12 +166,12 @@ async def fetch_exact_baselines(
 
     batches_done = 0
 
-    async def _fetch_batches(usernames: list[str], endpoint_url: str, sess: cffi_requests.AsyncSession):
+    async def _fetch_batches(usernames: list[str], endpoint_url: str, sess: cffi_requests.AsyncSession, target_slug: str, is_cn: bool = False):
         nonlocal batches_done
         if not usernames:
             return
         chunks = [usernames[i : i + BATCH_SIZE] for i in range(0, len(usernames), BATCH_SIZE)]
-        tasks = [_fetch_batch(sess, semaphore, chunk, endpoint_url) for chunk in chunks]
+        tasks = [_fetch_batch(sess, semaphore, chunk, endpoint_url, target_slug, is_cn) for chunk in chunks]
         for coro in asyncio.as_completed(tasks):
             partial = await coro
             merged.update(partial)
@@ -152,8 +184,8 @@ async def fetch_exact_baselines(
 
     async def _run(sess: cffi_requests.AsyncSession) -> None:
         await asyncio.gather(
-            _fetch_batches(us_usernames, "https://leetcode.com/graphql", sess),
-            _fetch_batches(cn_usernames, "https://leetcode.cn/graphql", sess)
+            _fetch_batches(us_usernames, "https://leetcode.com/graphql", sess, target_contest_slug, is_cn=False),
+            _fetch_batches(cn_usernames, "https://leetcode.cn/graphql", sess, target_contest_slug, is_cn=True)
         )
 
     if session is not None:
@@ -275,15 +307,24 @@ async def scrape_contest_leaderboard(
     async with cffi_requests.AsyncSession(impersonate=IMPERSONATE) as session:
         # 1. Probe for total pages
         probe_url = RANKING_URL.format(slug=contest_slug, page=1)
-        try:
-            probe = await session.get(probe_url)
-            probe.raise_for_status()
-            probe_data = probe.json()
-            total_users = probe_data.get('user_num', 0)
-            total_pages = ceil(total_users / USERS_PER_PAGE)
-        except Exception as e:
-            logger.error(f"Probe failed for {contest_slug}: {e}")
-            return []
+        backoff = 5
+        while True:
+            try:
+                probe = await session.get(probe_url)
+                if probe.status_code in (403, 429):
+                    logger.warning(f"Probe WAF Block ({probe.status_code}) for {contest_slug}. Backing off for {backoff}s...")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 60)
+                    continue
+                probe.raise_for_status()
+                probe_data = probe.json()
+                total_users = probe_data.get('user_num', 0)
+                total_pages = ceil(total_users / USERS_PER_PAGE)
+                break
+            except Exception as e:
+                logger.error(f"Probe error for {contest_slug}: {e}. Retrying in {backoff}s...")
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 60)
 
         if max_pages:
             total_pages = min(total_pages, max_pages)
@@ -303,6 +344,20 @@ async def scrape_contest_leaderboard(
                 await progress_callback(pages_done, total_pages)
 
     logger.info(f"Scrape complete: {len(all_users)} rows extracted.")
+
+    # 1. Sort the valid participants by their original API rank
+    all_users.sort(key=lambda x: x.get('global_rank', 0))
+
+    # 2. Re-assign contiguous active ranks (handling ties)
+    current_rank = 1
+    for i in range(len(all_users)):
+        # If this user's global rank is worse than the previous user's, 
+        # their active rank becomes their index + 1
+        if i > 0 and all_users[i].get('global_rank', 0) > all_users[i-1].get('global_rank', 0):
+            current_rank = i + 1
+            
+        all_users[i]['active_rank'] = current_rank
+
     return all_users
 
 

@@ -172,7 +172,7 @@ async def predict_contest(
             user_data_list = [{"username": p["username"], "region": p.get("data_region", "US")} for p in participants if p.get("username")]
             
             # jit_results: {username -> {"rating": float, "k": int}}
-            jit_results = await fetch_exact_baselines(user_data_list)
+            jit_results = await fetch_exact_baselines(user_data_list, contest_slug)
 
             # ── Phase 3: Enrich participants with their real baselines ────────
             saturday_cache = {}  # Future: fetch from Supabase

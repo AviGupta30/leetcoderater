@@ -149,7 +149,7 @@ class RatingEngine:
 
         for p in participants_list:
             uname = p.get("username", "")
-            rank  = p.get("global_rank", 0) or 0
+            rank  = p.get("active_rank", p.get("global_rank", 0)) or 0
             usernames.append(uname)
             actual_ranks.append(rank)
 
@@ -245,6 +245,9 @@ class RatingEngine:
         # weight = 0.5 - 0.2778 * (1 - math.pow(0.8, k))
         weight = 0.5 - 0.2778 * (1.0 - np.power(0.8, k_array))
         weighted_delta = (performance_rating - r_initial) * weight
+
+        calibration_factor = 0.75 
+        weighted_delta = weighted_delta * calibration_factor
         
         return weighted_delta
 

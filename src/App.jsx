@@ -192,109 +192,113 @@ const App = () => {
   const isLoading  = status === 'loading' || (status === 'idle' && !!selectedContest);
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col"
-         style={{ background: '#020617', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div className="min-h-screen text-slate-100 flex flex-col bg-cover bg-fixed bg-center bg-no-repeat"
+         style={{ backgroundImage: "url('/bg_map.png')", backgroundColor: '#050a11', fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header style={{ background: 'rgba(2,6,23,0.9)', backdropFilter: 'blur(16px)' }}
-              className="sticky top-0 z-40 border-b border-slate-800/70">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3 justify-between">
-
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                 style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', boxShadow: '0 0 16px rgba(249,115,22,0.3)' }}>
-              <Trophy className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold hidden sm:block"
-                  style={{ background: 'linear-gradient(90deg,#fff,#94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Contest Predictor
-            </span>
-          </div>
-
-          {/* Contest Selector Dropdown */}
-          <div className="relative shrink-0" style={{ minWidth: 240 }}>
-            <button
-              onClick={() => setDropdownOpen(v => !v)}
-              className="w-full flex items-center justify-between gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
-              style={{ background: 'rgba(30,41,59,0.7)', borderColor: dropdownOpen ? 'rgba(249,115,22,0.5)' : 'rgba(51,65,85,0.7)', color: '#e2e8f0' }}>
-              <div className="flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-orange-400" />
-                <span className="truncate max-w-[160px]">
-                  {contestsLoading ? 'Loading contests...' : selectedContest?.title ?? 'Select Contest'}
-                </span>
+      <header className="sticky top-0 z-40 bg-[#121821] border-b border-[#1E293B]/70 shadow-xl h-14">
+        <div className="max-w-[1920px] mx-auto px-6 h-full flex items-center justify-between">
+          
+          {/* Left Area: Logo, Shield, Dropdown */}
+          <div className="flex items-center">
+            {/* Logo */}
+            <div className="flex items-center gap-2.5 shrink-0 hover:opacity-90 cursor-pointer">
+              <div className="w-7 h-7 rounded-[6px] flex items-center justify-center bg-gradient-to-br from-[#F97316] to-[#EA580C] shadow-[0_0_12px_rgba(249,115,22,0.25)]">
+                <Trophy className="w-3.5 h-3.5 text-white" />
               </div>
-              <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", dropdownOpen && "rotate-180")} />
-            </button>
+              <span className="text-[13px] font-bold text-slate-400 tracking-wide">
+                Contest Predictor
+              </span>
+            </div>
 
-            <AnimatePresence>
-              {dropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute top-full mt-2 left-0 right-0 z-50 rounded-xl border border-slate-700 overflow-hidden shadow-2xl"
-                  style={{ background: 'rgba(15,23,42,0.98)', backdropFilter: 'blur(20px)' }}>
-                  {contestsLoading
-                    ? <div className="px-4 py-3 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading...</div>
-                    : contests.map(c => (
-                        <button key={c.slug} onClick={() => handleContestSelect(c)}
-                                className={cn(
-                                  "w-full text-left px-4 py-3 text-sm transition-colors hover:bg-slate-800/60",
-                                  selectedContest?.slug === c.slug ? "text-orange-400 bg-orange-500/10" : "text-slate-300"
-                                )}>
-                          {c.title}
-                        </button>
-                      ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+            {/* Overlapping Shield Badge */}
+            <div className="relative mx-5">
+              <div className="absolute top-[-26px] left-0 w-[42px] h-[52px] bg-gradient-to-b from-[#374151] to-[#1F2937] flex justify-center items-center z-50 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
+                   style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)' }}>
+                 <div className="w-[38px] h-[48px] bg-gradient-to-b from-[#2B3544] to-[#1C2532] flex flex-col justify-center items-center pb-1" 
+                      style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)', marginTop: '-2px' }}>
+                   <Trophy className="w-[18px] h-[18px] text-[#F97316]" style={{ filter: 'drop-shadow(0 2px 4px rgba(249,115,22,0.4))' }} />
+                   <div className="text-white text-[8px] opacity-70 mt-0.5">★</div>
+                 </div>
+              </div>
+              <div className="w-[42px]"></div> 
+            </div>
 
-          {/* Search */}
-          <div className="relative flex-1 max-w-lg group hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 group-focus-within:text-orange-400 transition-colors" />
-            <input
-              type="text" placeholder="Search username or rank..."
-              value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full py-2 pl-10 pr-8 rounded-full text-sm text-slate-200 placeholder-slate-600
-                         border border-slate-800 bg-slate-900/50 outline-none transition-all
-                         focus:ring-1 focus:ring-orange-500/40 focus:border-orange-500/40" />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
-                <X className="w-3.5 h-3.5" />
+            {/* Contest Dropdown */}
+            <div className="relative shrink-0 ml-[10px] w-48">
+              <button onClick={() => setDropdownOpen(v => !v)}
+                      className="w-full h-[30px] flex items-center justify-between px-3 rounded text-[11px] font-semibold bg-[#222A38] border border-[#2F3A4C] text-slate-300 hover:bg-[#2A3445] transition-all">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 text-[#F97316]" />
+                  <span className="truncate">{contestsLoading ? 'Loading...' : selectedContest?.title ?? 'Select Contest'}</span>
+                </div>
+                <ChevronDown className={cn("w-3 h-3 text-slate-500 transition-transform", dropdownOpen && "rotate-180")} />
               </button>
-            )}
+              <AnimatePresence>
+                {dropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}
+                    className="absolute top-full mt-2 left-0 right-0 z-50 rounded bg-[#111827] border border-[#1F2937] shadow-2xl overflow-hidden">
+                    {contestsLoading
+                      ? <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading...</div>
+                      : contests.map(c => (
+                          <button key={c.slug} onClick={() => handleContestSelect(c)}
+                                  className={cn("w-full text-left px-3 py-2 text-[11px] hover:bg-[#1F2937]", selectedContest?.slug === c.slug ? "text-[#F97316]" : "text-slate-300")}>
+                            {c.title}
+                          </button>
+                        ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={refetch} disabled={isScraping || isLoading}
-                    className="p-2 hover:bg-slate-800 rounded-full transition-colors" title="Refresh">
-              <RefreshCw className={cn("w-4 h-4 text-slate-400", (isScraping || isLoading) && "animate-spin")} />
-            </button>
-            {/* Live/Offline badge */}
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-full border"
-                 style={{
-                   background:   isLive ? 'rgba(16,185,129,0.1)' : isScraping ? 'rgba(251,191,36,0.1)' : 'rgba(244,63,94,0.1)',
-                   borderColor:  isLive ? 'rgba(52,211,153,0.3)'  : isScraping ? 'rgba(251,191,36,0.3)'  : 'rgba(244,63,94,0.3)',
-                   color:        isLive ? '#34d399'                : isScraping ? '#fbbf24'                : '#f43f5e',
-                 }}>
-              {isLive ? <Wifi className="w-3 h-3" /> : isScraping ? <Loader2 className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
-              <span>{isLive ? 'LIVE' : status === 'fetching_ratings' ? 'FETCHING RATINGS' : isScraping ? 'SCRAPING' : status === 'loading' ? 'LOADING' : 'OFFLINE'}</span>
+          {/* Right Area: Search, Refresh, Live, Avatar */}
+          <div className="flex items-center gap-5 flex-1 justify-end">
+            
+            {/* Styled Search Bar */}
+            <div className="relative w-[340px] group hidden lg:block group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-[#37B5AC] transition-colors" />
+              <input type="text" placeholder="Search username or rank..."
+                     value={search} onChange={e => setSearch(e.target.value)}
+                     className="w-full h-8 pl-9 pr-4 rounded text-[11px] text-slate-200 placeholder-slate-600
+                                bg-[#1A222D] border border-transparent outline-none shadow-inner
+                                focus:bg-[#1E2835] transition-all" />
+              <div className="absolute -bottom-[0px] left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-[#37B5AC] to-transparent opacity-80" />
             </div>
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 overflow-hidden cursor-pointer">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="avatar" className="w-full h-full" />
+
+            {/* Account Config & Specs */}
+            <div className="flex items-center gap-3 shrink-0">
+              <button onClick={refetch} disabled={isScraping || isLoading} className="group">
+                <RefreshCw className={cn("w-4 h-4 text-slate-500 group-hover:text-white transition", (isScraping || isLoading) && "animate-spin")} />
+              </button>
+              
+              <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full"
+                   style={{
+                     background:   isLive ? 'rgba(55,181,172,0.1)' : isScraping ? 'rgba(251,191,36,0.1)' : 'rgba(217,69,91,0.1)',
+                     borderColor:  isLive ? 'rgba(55,181,172,0.3)' : isScraping ? 'rgba(251,191,36,0.3)' : 'rgba(217,69,91,0.3)',
+                     borderWidth: 1,
+                     color:        isLive ? '#37B5AC'               : isScraping ? '#FBBF24'               : '#D9455B',
+                   }}>
+                {isLive ? <Wifi className="w-2.5 h-2.5" /> : isScraping ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <WifiOff className="w-2.5 h-2.5" />}
+                <span>{isLive ? '1 TVF' : status === 'fetching_ratings' ? 'FETCH' : isScraping ? 'SCRAPE' : 'OFF'}</span>
+              </div>
+
+              <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden cursor-pointer opacity-90 hover:opacity-100 transition-opacity">
+                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Admin`} alt="avatar" />
+              </div>
             </div>
+
           </div>
         </div>
       </header>
 
       {/* ── Main ────────────────────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-8 relative">
 
         {/* Sub-header */}
-        <div className="flex items-end justify-between mb-6">
-          <div>
+        <div className="flex items-end justify-between mb-6 relative">
+          <div className="z-10 bg-[#0A111A]/60 backdrop-blur-md pb-2 pr-4 rounded-xl">
             <h2 className="text-2xl font-bold tracking-tight">High-Performance Data Table</h2>
             <p className="text-slate-500 text-sm mt-1">
               {isLoading  && 'Connecting to backend...'}
@@ -304,10 +308,11 @@ const App = () => {
               {status === 'error' && <span className="text-rose-500">Error: {error}</span>}
             </p>
           </div>
-          <div className="text-[10px] font-mono text-slate-600 uppercase tracking-widest
-                          bg-slate-900/40 px-3 py-1 rounded-full border border-slate-800">
+          <div className="z-10 text-[10px] font-mono text-slate-400 uppercase tracking-widest
+                          bg-[#1A2633] px-3 py-1 rounded-full border border-slate-700 shadow-[0_0_15px_rgba(55,181,172,0.1)]">
             V-SYNC: ENABLED
           </div>
+
         </div>
 
         {/* Progress bar — visible during scraping */}
@@ -352,24 +357,35 @@ const App = () => {
           )}
         </AnimatePresence>
 
-        {/* Table card */}
-        <div className="border border-slate-800 rounded-2xl overflow-hidden shadow-2xl"
-             style={{ background: 'rgba(15,23,42,0.4)' }}>
-          {(isLoading || status === 'idle') ? <SkeletonTable />
-            : isScraping                    ? <ScrapingPlaceholder pct={progress.pct} />
-            : status === 'error'            ? <ErrorState message={error} onRetry={refetch} />
-            : filtered.length === 0         ? <EmptyState />
-            : <LeaderboardTable users={filtered} onRowClick={handleRowClick} />
-          }
+        <div className="flex gap-6 items-start">
+          {/* Player Focus Left Bar */}
+          <AnimatePresence>
+            {selectedUser && (
+              <motion.div 
+                initial={{ width: 0, opacity: 0, marginLeft: 0 }} 
+                animate={{ width: 350, opacity: 1, marginLeft: 0 }} 
+                exit={{ width: 0, opacity: 0, marginLeft: -24 }} 
+                transition={{ duration: 0.3 }}
+                className="shrink-0 overflow-hidden">
+                <div className="w-[350px]">
+                   <UserDetailSidebar user={selectedUser} totalParticipants={meta.total} onClose={() => setSelectedUser(null)} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Table card */}
+          <div className="flex-1 w-full min-w-0 border border-[#37B5AC]/40 rounded-2xl overflow-hidden shadow-[0_0_25px_rgba(55,181,172,0.15)] relative"
+               style={{ background: 'rgba(15,22,35,0.7)', transition: 'all 0.3s' }}>
+            {(isLoading || status === 'idle') ? <SkeletonTable />
+              : isScraping                    ? <ScrapingPlaceholder pct={progress.pct} />
+              : status === 'error'            ? <ErrorState message={error} onRetry={refetch} />
+              : filtered.length === 0         ? <EmptyState />
+              : <LeaderboardTable users={filtered} onRowClick={(u) => setSelectedUser(u)} />
+            }
+          </div>
         </div>
       </main>
-
-      {/* ── Detail Sheet ────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {isSheetOpen && selectedUser && (
-          <UserDetailSheet user={selectedUser} totalParticipants={meta.total} onClose={() => setIsSheetOpen(false)} />
-        )}
-      </AnimatePresence>
 
       {/* Close dropdown on outside click */}
       {dropdownOpen && <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />}
@@ -409,32 +425,44 @@ const LeaderboardTable = ({ users, onRowClick }) => {
               <div key={vRow.key} data-index={vRow.index} ref={rowVirtualizer.measureElement}
                    onClick={() => onRowClick(u)}
                    className={cn('absolute top-0 left-0 w-full grid gap-4 px-6 py-3.5 border-b cursor-pointer transition-all group', COL,
-                     isTop ? 'border-amber-500/30 hover:bg-amber-500/8' : 'border-slate-800/40 hover:bg-slate-800/25')}
+                     isTop ? 'border-[#37B5AC]/30 hover:bg-[#37B5AC]/10 z-10' : 'border-slate-700/30 hover:bg-[#1A2633]')}
                    style={{
                      transform: `translateY(${vRow.start}px)`,
-                     background: isTop ? 'rgba(245,158,11,0.04)' : undefined,
-                     boxShadow:  isTop ? 'inset 3px 0 0 0 rgba(251,191,36,0.65)' : undefined,
+                     background: isTop ? 'rgba(55,181,172,0.05)' : undefined,
+                     boxShadow:  isTop ? 'inset 3px 0 0 0 rgba(55,181,172,0.8)' : undefined,
                    }}>
                 {/* Rank */}
-                <div className={cn('font-mono font-semibold text-sm flex items-center gap-1', isTop ? 'text-amber-400' : 'text-slate-500')}>
+                <div className={cn('font-mono font-semibold text-sm flex items-center gap-1', isTop ? 'text-[#FBBF24]' : 'text-slate-500')}>
                   {isTop && <Trophy className="w-3 h-3" />}{u.global_rank}
                 </div>
                 {/* Username */}
-                <div className="font-semibold text-sky-400 text-sm truncate group-hover:text-sky-300 transition-colors">{u.username}</div>
+                <div className="font-semibold text-[#60A5FA] text-sm truncate group-hover:text-blue-300 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`} className="w-6 h-6 rounded-full bg-slate-800" />
+                    {u.username}
+                  </div>
+                </div>
                 {/* Score */}
                 <div className="text-slate-300 font-mono text-sm">{u.score ?? '—'}</div>
                 {/* Finish Time */}
                 <div className="text-slate-400 font-mono text-sm">{fmtTime(u.finish_time)}</div>
                 {/* Prev Rating */}
                 <div className="text-slate-400 font-mono text-sm">{u.previous_rating.toFixed(0)}</div>
-                {/* Delta */}
-                <div className={cn('font-bold font-mono text-sm', isPos ? 'text-emerald-400' : 'text-rose-500')}
-                     style={{ filter: 'drop-shadow(0 0 5px currentColor)', opacity: 0.95 }}>
-                  {isPos ? `+${u.predicted_delta.toFixed(1)}` : u.predicted_delta.toFixed(1)}
+                {/* Delta Layout strictly matching image */}
+                <div className="flex items-center gap-3">
+                  <span className={cn('font-bold font-mono text-xs w-20 text-right flex items-center justify-end gap-1.5', isPos ? 'text-[#37B5AC]' : 'text-[#D9455B]')} style={{ opacity: 0.95 }}>
+                    {isPos ? `+${u.predicted_delta.toFixed(1)} ▲` : `${u.predicted_delta.toFixed(1)} ▼`}
+                  </span>
+                  <div className="w-8 h-3.5 bg-[#202937] rounded-full relative shrink-0"
+                       style={{ border: isPos ? '1px solid rgba(55,181,172,0.6)' : '1px solid rgba(217,69,91,0.6)',
+                                boxShadow: isPos ? '0 0 8px rgba(55,181,172,0.4)' : '0 0 8px rgba(217,69,91,0.4)' }}>
+                    <div className={cn("absolute top-[1.5px] bottom-[1.5px] w-[14px] rounded-full", isPos ? "bg-[#37B5AC] right-[1.5px]" : "bg-[#D9455B] left-[1.5px]")}
+                         style={{ boxShadow: isPos ? '0 0 6px rgba(55,181,172,0.8)' : '0 0 6px rgba(217,69,91,0.8)' }}></div>
+                  </div>
                 </div>
                 {/* Predicted Rating */}
-                <div className="font-bold font-mono text-sm text-amber-400"
-                     style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.45))' }}>
+                <div className="font-bold font-mono text-sm text-[#FBBF24]"
+                     style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.3))' }}>
                   {u.predicted_rating.toFixed(0)}
                 </div>
               </div>
@@ -446,100 +474,98 @@ const LeaderboardTable = ({ users, onRowClick }) => {
   );
 };
 
-// ─── Detail Sheet ─────────────────────────────────────────────────────────────
-const UserDetailSheet = ({ user, totalParticipants, onClose }) => {
+// ─── Radar Component ──────────────────────────────────────────────────────
+const RadarChart = () => (
+  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_10px_rgba(45,212,191,0.3)]">
+    <polygon points="50,5 95,30 80,85 20,85 5,30" fill="none" stroke="#1E293B" strokeWidth="1" />
+    <polygon points="50,25 75,45 65,70 35,70 25,45" fill="none" stroke="#1E293B" strokeWidth="1" />
+    <polygon points="50,40 60,55 55,65 45,65 40,55" fill="none" stroke="#1E293B" strokeWidth="1" />
+    <line x1="50" y1="50" x2="50" y2="5" stroke="#1E293B" />
+    <line x1="50" y1="50" x2="95" y2="30" stroke="#1E293B" />
+    <line x1="50" y1="50" x2="80" y2="85" stroke="#1E293B" />
+    <line x1="50" y1="50" x2="20" y2="85" stroke="#1E293B" />
+    <line x1="50" y1="50" x2="5" y2="30" stroke="#1E293B" />
+    <polygon points="50,15 85,35 60,80 30,70 15,40" fill="rgba(45,212,191,0.2)" stroke="#2DD4BF" strokeWidth="1.5" />
+    <circle cx="50" cy="15" r="2" fill="#2DD4BF" />
+    <circle cx="85" cy="35" r="2" fill="#2DD4BF" />
+    <circle cx="60" cy="80" r="2" fill="#2DD4BF" />
+    <circle cx="30" cy="70" r="2" fill="#2DD4BF" />
+    <circle cx="15" cy="40" r="2" fill="#2DD4BF" />
+    <text x="50" y="4" fontSize="5" fill="#64748B" textAnchor="middle">Rating</text>
+    <text x="96" y="32" fontSize="5" fill="#64748B" textAnchor="start">Problem</text>
+    <text x="82" y="89" fontSize="5" fill="#64748B" textAnchor="middle">Learn</text>
+    <text x="18" y="89" fontSize="5" fill="#64748B" textAnchor="middle">Brestrg</text>
+    <text x="4" y="32" fontSize="5" fill="#64748B" textAnchor="end">Speed</text>
+  </svg>
+);
+
+// ─── Player Focus Sidebar ─────────────────────────────────────────────────
+const UserDetailSidebar = ({ user, totalParticipants, onClose }) => {
   const isPos = user.predicted_delta >= 0;
   return (
-    <>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  onClick={onClose} className="fixed inset-0 z-50"
-                  style={{ background: 'rgba(2,6,23,0.65)', backdropFilter: 'blur(4px)' }} />
-      <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-                  transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-                  className="fixed right-0 top-0 h-full w-full max-w-sm z-50 flex flex-col border-l border-slate-800 shadow-2xl"
-                  style={{ background: 'rgba(15,23,42,0.97)', backdropFilter: 'blur(20px)' }}>
+      <div className="flex flex-col border border-slate-700/50 rounded-2xl shadow-[0_0_30px_rgba(45,212,191,0.05)] h-[72vh] overflow-hidden"
+           style={{ background: 'rgba(15,22,35,0.7)', backdropFilter: 'blur(20px)' }}>
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 p-0.5 overflow-hidden">
-              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} alt={user.username} className="w-full h-full rounded-lg object-cover" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold leading-tight">{user.username}</h2>
-              <div className="flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-full w-fit text-xs font-bold uppercase tracking-wider"
-                   style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-                <Trophy className="w-3 h-3" /> Global Rank: {user.global_rank}
-              </div>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors group">
-            <X className="w-5 h-5 text-slate-500 group-hover:text-white" />
-          </button>
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/5">
+           <span className="font-semibold text-white tracking-wide text-sm">Player Focus</span>
+           <button onClick={onClose}><ChevronDown className="w-4 h-4 text-slate-500 -rotate-90 hover:text-white" /></button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-auto p-5 space-y-6">
-          {/* Information */}
-          <section>
-            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Information</h3>
-            <div className="grid grid-cols-3 gap-2.5">
-              <MetricCard label="Previous Rating" value={user.previous_rating.toFixed(0)} />
-              <MetricCard label="Predicted Delta"
-                value={(isPos ? '+' : '') + user.predicted_delta.toFixed(1)}
-                color={isPos ? '#34d399' : '#f43f5e'}
-                glow={isPos ? 'rgba(52,211,153,0.25)' : 'rgba(244,63,94,0.25)'}
-                bgCol={isPos ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)'}
-                border={isPos ? 'rgba(52,211,153,0.25)' : 'rgba(244,63,94,0.25)'} />
-              <MetricCard label="New Predicted Rating" value={user.predicted_rating.toFixed(0)}
-                color="#fbbf24" glow="rgba(251,191,36,0.3)" />
+        <div className="flex-1 overflow-auto p-5 flex flex-col gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-2 border-[#2DD4BF] p-0.5 overflow-hidden shadow-[0_0_10px_rgba(45,212,191,0.4)]">
+               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="w-full h-full rounded-full bg-slate-800" />
             </div>
-          </section>
+            <div>
+              <h3 className="font-bold text-white text-base tracking-wide truncate max-w-[180px]">{user.username}</h3>
+              <p className="text-[11px] text-slate-500 uppercase tracking-widest mt-0.5">Avatar</p>
+            </div>
+          </div>
 
-          {/* Calculation Context */}
-          <section className="rounded-xl p-4 relative overflow-hidden"
-                   style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.6)' }}>
-            <div className="absolute top-3 right-3 opacity-5 pointer-events-none">
-              <Target className="w-16 h-16 text-orange-400" />
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <Info className="w-3.5 h-3.5 text-orange-400" />
-              <h3 className="text-[11px] font-bold text-white uppercase tracking-wider">Calculation Context</h3>
-            </div>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              <span className="font-semibold text-slate-200">Performance / Seed:</span>{' '}
-              Algorithmically calculated expected rank based on{' '}
-              <span className="text-orange-400 font-mono">{totalParticipants.toLocaleString()}</span>{' '}
-              participants using Histogram Interpolation Elo-MMR.
-            </p>
-          </section>
+          <div className="h-32 flex justify-center items-center">
+            <RadarChart />
+          </div>
 
-          {/* Contest Details */}
-          <section className="relative">
-            <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Contest Details</h3>
-            <div className="rounded-xl overflow-hidden border border-slate-800 divide-y divide-slate-800/50"
-                 style={{ background: 'rgba(15,23,42,0.5)' }}>
-              <DetailRow label="Final Score:" value={user.score ?? '—'} />
-              <DetailRow label="Finish Time:" value={fmtTime(user.finish_time)} />
-              <DetailRow label="Penalty details:" value={0} />
-              <DetailRow label="Penalty details details:" value={3} />
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between items-end mb-1">
+                <span className="text-xs font-semibold text-[#2DD4BF]">Speed</span>
+                <span className="text-[10px] text-slate-400 font-mono">{fmtTime(user.finish_time)}</span>
+              </div>
+              <div className="h-1 bg-[#1A283B] rounded">
+                <div className="h-full bg-[#2DD4BF] rounded shadow-[0_0_8px_#2DD4BF]" style={{ width: `${Math.max(5, 100 - (user.finish_time / 5400) * 100)}%` }}></div>
+              </div>
             </div>
-            <div className="absolute -bottom-3 -right-1 opacity-20 pointer-events-none">
-              <svg viewBox="0 0 24 24" className="w-10 h-10 fill-slate-500">
-                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5Z" />
-              </svg>
+            <div>
+              <div className="flex justify-between items-end mb-1">
+                <span className="text-xs font-semibold text-[#60A5FA]">Problem Solving</span>
+                <span className="text-[10px] text-slate-400 font-mono">Score: {user.score ?? 0}</span>
+              </div>
+              <div className="h-1 bg-[#1A283B] rounded">
+                <div className="h-full bg-[#60A5FA] rounded shadow-[0_0_8px_#60A5FA]" style={{ width: `${Math.min(100, Math.max(5, ((user.score || 0) / 25) * 100))}%` }}></div>
+              </div>
             </div>
-          </section>
+          </div>
+
+          <div className="pt-4 border-t border-white/5">
+             <h4 className="text-xs font-semibold text-slate-300 mb-3">Real-Time Performance</h4>
+             <div className="flex flex-col gap-2.5">
+               <div className="flex justify-between items-center text-[10px] font-mono">
+                 <span className="text-[#60A5FA]">Time Taken</span>
+                 <span className="text-slate-500">{fmtTime(user.finish_time)}</span>
+               </div>
+             </div>
+          </div>
+          
+          <div className="pt-2">
+             <h4 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Predictive Insights</h4>
+             <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+               Your player insights will show his future performance in this weekend based on continuous metric tracking.
+             </p>
+          </div>
         </div>
-
-        {/* Footer */}
-        <div className="p-5 border-t border-slate-800">
-          <button className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-95"
-                  style={{ background: 'linear-gradient(135deg,#f97316,#ea580c)', boxShadow: '0 4px 20px rgba(249,115,22,0.25)' }}>
-            Full Contest Analysis
-          </button>
-        </div>
-      </motion.div>
-    </>
+      </div>
   );
 };
 

@@ -84,20 +84,24 @@ class RatingEngine:
         )
         logger.info(f"Phase 1 (Baseline Resolution) completed in {time.perf_counter() - t0:.3f}s")
 
-        # ── Phase 2: Histogram Interpolation ─────────────────────────────────────
+        # ── Assemble Output ───────────────────────────────────────────────────────
+        # Build a quick lookup for passthrough fields (score, finish_time) and k
+        meta = {p.get("username", ""): p for p in participants_list}
+        
+        # Extract k (attendedContestsCount) for Veteran Tax.
+        # Fallback to 0 if not yet fully implemented upstream.
+        k_array = np.array([meta.get(uname, {}).get("k", 0) for uname in usernames], dtype=np.float64)
+
+        # ── Phase 2: Histogram Interpolation & STEP 1───────────────────────────────
         t1 = time.perf_counter()
-        delta_raw = self._compute_deltas(r_initial, actual_ranks)
+        delta_raw = self._compute_deltas(r_initial, actual_ranks, k_array)
         logger.info(f"Phase 2 (Histogram Interpolation) completed in {time.perf_counter() - t1:.4f}s")
 
-        # ── Phase 3: Post-Processing ──────────────────────────────────────────────
+        # ── Phase 3: Post-Processing (STEPS 2 & 3) ────────────────────────────────
         t2 = time.perf_counter()
         delta_final = self._apply_drift_correction(delta_raw)
         predicted_ratings = r_initial + delta_final
         logger.info(f"Phase 3 (Drift Correction) completed in {time.perf_counter() - t2:.4f}s")
-
-        # ── Assemble Output ───────────────────────────────────────────────────────
-        # Build a quick lookup for passthrough fields (score, finish_time)
-        meta = {p.get("username", ""): p for p in participants_list}
 
         results = []
         for i in range(n):
@@ -179,6 +183,7 @@ class RatingEngine:
         self,
         r_initial: np.ndarray,
         actual_ranks: np.ndarray,
+        k_array: np.ndarray,
     ) -> np.ndarray:
         """
         Core O(K × |X|) histogram interpolation — fully vectorised.
@@ -236,13 +241,17 @@ class RatingEngine:
         # Interpolate against (E_flip, X_flip): given expected rank m → rating P.
         performance_rating = np.interp(m, E_flip, X_flip)  # shape: (N,)
 
-        # Volatility weighting: Δ_raw = (P − R_initial) × W
-        delta_raw = (performance_rating - r_initial) * self.VOLATILITY_WEIGHT
-        return delta_raw
+        # STEP 1: Calculate Weighted Deltas (Individual)
+        # weight = 0.5 - 0.2778 * (1 - math.pow(0.8, k))
+        weight = 0.5 - 0.2778 * (1.0 - np.power(0.8, k_array))
+        weighted_delta = (performance_rating - r_initial) * weight
+        
+        return weighted_delta
+
 
     # ─── Phase 3 ─────────────────────────────────────────────────────────────────
 
-    def _apply_drift_correction(self, delta_raw: np.ndarray) -> np.ndarray:
+    def _apply_drift_correction(self, weighted_delta: np.ndarray) -> np.ndarray:
         """
         Zero-sum ecosystem correction.
 
@@ -251,9 +260,13 @@ class RatingEngine:
 
         Δ_final = Δ_raw − mean(Δ_raw)
         """
-        drift = np.mean(delta_raw)
+        # STEP 2: Calculate Global Drift (Center of Mass)
+        drift = np.mean(weighted_delta)
         logger.info(f"Phase 3 — Drift correction: mean drift = {drift:.4f} rating points.")
-        return delta_raw - drift
+        
+        # STEP 3: Apply Zero-Sum Correction (Final Loop)
+        final_predicted_delta = weighted_delta - drift
+        return final_predicted_delta
 
 
 # ─── Quick Smoke-Test ────────────────────────────────────────────────────────────

@@ -170,18 +170,33 @@ async def predict_contest(
             logger.info(f"[Pipeline] Starting JIT baseline fetch for {len(participants)} participants...")
             _scrape_progress[contest_slug]["status"] = "fetching_ratings"
             usernames = [p["username"] for p in participants if p.get("username")]
-            jit_ratings = await fetch_exact_baselines(usernames)
-
-            # Merge JIT ratings into a combined db:
-            # JIT results take priority over the static dump (which we keep as a fallback)
-            combined_db = {**_global_wednesday_db, **jit_ratings}
-            logger.info(
-                f"[Pipeline] Combined baseline DB: {len(jit_ratings)} JIT + "
-                f"{len(_global_wednesday_db)} static = {len(combined_db)} total entries."
-            )
+            
+            # jit_results: {username -> {"rating": float, "k": int}}
+            jit_results = await fetch_exact_baselines(usernames)
 
             # ── Phase 3: Enrich participants with their real baselines ────────
             saturday_cache = {}  # Future: fetch from Supabase
+            
+            # Update participants with 'k' from JIT and extract ratings for combined_db
+            jit_ratings_only = {}
+            for p in participants:
+                uname = p["username"]
+                if uname in jit_results:
+                    res = jit_results[uname]
+                    p["k"] = res.get("k", 0)
+                    jit_ratings_only[uname] = res["rating"]
+                else:
+                    p["k"] = 0  # Default for new/skipped users
+
+            # Merge JIT ratings into a combined db:
+            # JIT results take priority over the static dump
+            combined_db = {**_global_wednesday_db, **jit_ratings_only}
+            
+            logger.info(
+                f"[Pipeline] Combined baseline DB: {len(jit_ratings_only)} JIT + "
+                f"{len(_global_wednesday_db)} static = {len(combined_db)} total entries."
+            )
+
             for p in participants:
                 p["previous_rating"] = get_baseline_rating(
                     username=p["username"],

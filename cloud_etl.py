@@ -50,7 +50,7 @@ def _build_batched_query(usernames: list[str]) -> str:
     for i, username in enumerate(usernames):
         # Escape backslashes first, then double-quotes
         safe = username.replace("\\", "\\\\").replace('"', '\\"')
-        aliases.append(f'  user{i}: userContestRanking(username: "{safe}") {{ rating }}')
+        aliases.append(f'  user{i}: userContestRanking(username: "{safe}") {{ rating attendedContestsCount }}')
     return "query {\n" + "\n".join(aliases) + "\n}"
 
 
@@ -58,7 +58,7 @@ async def _fetch_batch(
     session: cffi_requests.AsyncSession,
     semaphore: asyncio.Semaphore,
     chunk: list[str],
-) -> dict[str, float]:
+) -> dict[str, dict]:
     """
     Sends one batched GraphQL request for a chunk of 50 usernames.
     Returns a partial dict {username: rating}.
@@ -91,7 +91,10 @@ async def _fetch_batch(
                     node = data.get(f"user{i}")
                     # node is None if user has never competed — cascade will default to 1500
                     if node is not None and node.get("rating") is not None:
-                        result[username] = float(node["rating"])
+                        result[username] = {
+                            "rating": float(node["rating"]),
+                            "k": int(node.get("attendedContestsCount", 0))
+                        }
                 return result
 
             except Exception as e:
@@ -103,7 +106,7 @@ async def _fetch_batch(
 async def fetch_exact_baselines(
     usernames_list: list[str],
     session: cffi_requests.AsyncSession | None = None,
-) -> dict[str, float]:
+) -> dict[str, dict]:
     """
     Module A.5 — JIT GraphQL Batching
     ===================================
@@ -137,7 +140,7 @@ async def fetch_exact_baselines(
     )
 
     semaphore = asyncio.Semaphore(JIT_CONCURRENT)
-    merged: dict[str, float] = {}
+    merged: dict[str, dict] = {}
 
     async def _run(sess: cffi_requests.AsyncSession) -> None:
         tasks = [_fetch_batch(sess, semaphore, chunk) for chunk in chunks]
@@ -197,21 +200,29 @@ async def _scrape_page(
                 resp.raise_for_status()
                 data     = resp.json()
                 rankings = data.get('total_rank', [])
+                submissions_list = data.get('submissions', [])
 
-                return [
-                    {
-                        # Use _extract_profile_username to get the real GraphQL-queryable slug
-                        # The contest API 'username' field is a display name that often differs
-                        # from the actual LeetCode profile username used by GraphQL.
+                valid_participants = []
+                for idx, u in enumerate(rankings):
+                    # 1. Safely extract the submissions object (handling both parallel lists and embedded objects)
+                    submissions = submissions_list[idx] if idx < len(submissions_list) else u.get('submissions', {})
+                    score = u.get('score', 0)
+                    
+                    # 2. Drop User IF: score == 0 AND they have zero submissions. These are true ghosts.
+                    if score == 0 and len(submissions) == 0:
+                        continue
+                        
+                    # 3. Keep User IF: score == 0 AND they have greater than zero submissions.
+                    valid_participants.append({
                         "username":    _extract_profile_username(u),
-                        "display_name": u.get('username'),  # Keep original for display
-                        "score":       u.get('score'),
+                        "display_name": u.get('username'),
+                        "score":       score,
                         "finish_time": u.get('finish_time'),
                         "global_rank": u.get('rank'),
                         "data_region": u.get('data_region')
-                    }
-                    for u in rankings
-                ]
+                    })
+
+                return valid_participants
 
             except Exception as e:
                 logger.error(f"[Page {page}] Failed: {e}. Retrying in {backoff}s...")

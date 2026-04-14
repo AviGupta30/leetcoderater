@@ -58,6 +58,7 @@ async def _fetch_batch(
     session: cffi_requests.AsyncSession,
     semaphore: asyncio.Semaphore,
     chunk: list[str],
+    endpoint_url: str,
 ) -> dict[str, dict]:
     """
     Sends one batched GraphQL request for a chunk of 50 usernames.
@@ -72,7 +73,7 @@ async def _fetch_batch(
             await asyncio.sleep(random.uniform(0.1, 0.4))  # Light jitter — GraphQL is less guarded
             try:
                 resp = await session.post(
-                    GRAPHQL_URL,
+                    endpoint_url,
                     json={"query": query},
                     headers={"Content-Type": "application/json"},
                 )
@@ -104,47 +105,41 @@ async def _fetch_batch(
 
 
 async def fetch_exact_baselines(
-    usernames_list: list[str],
+    user_data_list: list[dict],
     session: cffi_requests.AsyncSession | None = None,
 ) -> dict[str, dict]:
     """
     Module A.5 — JIT GraphQL Batching
     ===================================
-    Given a list of 35,000 usernames, fetches their EXACT current LeetCode
-    contest ratings in ~45 seconds using GraphQL aliasing.
-
-    Math: 35,000 users / 50 per batch = 700 requests @ 15 concurrent
-
-    Args:
-        usernames_list: The full list of usernames from the contest scrape.
-        session:        Optional existing curl_cffi AsyncSession. If None, a new
-                        one is created internally (use this for standalone calls).
+    Given a list of dictionaries with usernames and regions, fetches their EXACT current LeetCode
+    contest ratings in ~45 seconds using GraphQL aliasing, routed safely to US or CN servers.
 
     Returns:
-        dict[str, float]: {username -> current_rating}
-        Users with no contest history are ABSENT from the dict.
-        The RatingEngine's cascade will correctly default them to 1500.
+        dict[str, dict]: {username -> {"rating": float, "k": int}}
     """
-    if not usernames_list:
+    if not user_data_list:
         return {}
 
-    # Split into chunks of BATCH_SIZE
-    chunks = [
-        usernames_list[i : i + BATCH_SIZE]
-        for i in range(0, len(usernames_list), BATCH_SIZE)
-    ]
-    total_batches = len(chunks)
-    logger.info(
-        f"[JIT] Starting exact baseline fetch: {len(usernames_list)} users "
-        f"→ {total_batches} batches @ {JIT_CONCURRENT} concurrent."
-    )
+    us_usernames = [u["username"] for u in user_data_list if u.get("region") != "CN"]
+    cn_usernames = [u["username"] for u in user_data_list if u.get("region") == "CN"]
 
     semaphore = asyncio.Semaphore(JIT_CONCURRENT)
     merged: dict[str, dict] = {}
+    
+    total_batches = ceil(len(us_usernames) / BATCH_SIZE) + ceil(len(cn_usernames) / BATCH_SIZE)
+    logger.info(
+        f"[JIT] Starting region-aware baseline fetch: {len(user_data_list)} users "
+        f"({len(us_usernames)} US, {len(cn_usernames)} CN) → {total_batches} batches @ {JIT_CONCURRENT} concurrent."
+    )
 
-    async def _run(sess: cffi_requests.AsyncSession) -> None:
-        tasks = [_fetch_batch(sess, semaphore, chunk) for chunk in chunks]
-        batches_done = 0
+    batches_done = 0
+
+    async def _fetch_batches(usernames: list[str], endpoint_url: str, sess: cffi_requests.AsyncSession):
+        nonlocal batches_done
+        if not usernames:
+            return
+        chunks = [usernames[i : i + BATCH_SIZE] for i in range(0, len(usernames), BATCH_SIZE)]
+        tasks = [_fetch_batch(sess, semaphore, chunk, endpoint_url) for chunk in chunks]
         for coro in asyncio.as_completed(tasks):
             partial = await coro
             merged.update(partial)
@@ -155,6 +150,12 @@ async def fetch_exact_baselines(
                     f"{len(merged)} ratings resolved."
                 )
 
+    async def _run(sess: cffi_requests.AsyncSession) -> None:
+        await asyncio.gather(
+            _fetch_batches(us_usernames, "https://leetcode.com/graphql", sess),
+            _fetch_batches(cn_usernames, "https://leetcode.cn/graphql", sess)
+        )
+
     if session is not None:
         await _run(session)
     else:
@@ -162,7 +163,7 @@ async def fetch_exact_baselines(
             await _run(s)
 
     found    = len(merged)
-    missing  = len(usernames_list) - found
+    missing  = len(user_data_list) - found
     logger.info(
         f"[JIT] Complete: {found} real ratings fetched | "
         f"{missing} users have no contest history → will default to 1500."

@@ -169,10 +169,10 @@ async def predict_contest(
             # 35k users / 50 per batch = 700 requests @ 15 concurrent = ~45s
             logger.info(f"[Pipeline] Starting JIT baseline fetch for {len(participants)} participants...")
             _scrape_progress[contest_slug]["status"] = "fetching_ratings"
-            usernames = [p["username"] for p in participants if p.get("username")]
+            user_data_list = [{"username": p["username"], "region": p.get("data_region", "US")} for p in participants if p.get("username")]
             
             # jit_results: {username -> {"rating": float, "k": int}}
-            jit_results = await fetch_exact_baselines(usernames)
+            jit_results = await fetch_exact_baselines(user_data_list)
 
             # ── Phase 3: Enrich participants with their real baselines ────────
             saturday_cache = {}  # Future: fetch from Supabase

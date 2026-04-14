@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from cloud_etl import scrape_contest_leaderboard, fetch_latest_contests
+from cloud_etl import scrape_contest_leaderboard, fetch_latest_contests, fetch_exact_baselines
 from rating_engine import RatingEngine
 from baseline import load_historical_baselines, get_baseline_rating
 
@@ -153,25 +153,45 @@ async def predict_contest(
             _scrape_progress[contest_slug] = {"status": "scraping", "pages_done": done, "total": total}
 
         try:
+            # ── Phase 1: Scrape contest leaderboard ─────────────────────────
             participants = await scrape_contest_leaderboard(
                 contest_slug,
                 max_pages=max_pages,
                 progress_callback=progress_cb,
             )
 
-            # Mock Saturday Cache (fetch from Supabase here in the future)
-            saturday_cache = {}
+            if not participants:
+                _scrape_progress[contest_slug]["status"] = "error"
+                logger.error(f"No participants found for {contest_slug}.")
+                return
 
-            # The Enriched Pipeline Integration exactly as requested
+            # ── Phase 2: JIT baseline fetch (exact real ratings) ─────────────
+            # 35k users / 50 per batch = 700 requests @ 15 concurrent = ~45s
+            logger.info(f"[Pipeline] Starting JIT baseline fetch for {len(participants)} participants...")
+            _scrape_progress[contest_slug]["status"] = "fetching_ratings"
+            usernames = [p["username"] for p in participants if p.get("username")]
+            jit_ratings = await fetch_exact_baselines(usernames)
+
+            # Merge JIT ratings into a combined db:
+            # JIT results take priority over the static dump (which we keep as a fallback)
+            combined_db = {**_global_wednesday_db, **jit_ratings}
+            logger.info(
+                f"[Pipeline] Combined baseline DB: {len(jit_ratings)} JIT + "
+                f"{len(_global_wednesday_db)} static = {len(combined_db)} total entries."
+            )
+
+            # ── Phase 3: Enrich participants with their real baselines ────────
+            saturday_cache = {}  # Future: fetch from Supabase
             for p in participants:
                 p["previous_rating"] = get_baseline_rating(
-                    username=p["username"], 
-                    saturday_cache=saturday_cache, 
-                    official_wednesday_db=_global_wednesday_db
+                    username=p["username"],
+                    saturday_cache=saturday_cache,
+                    official_wednesday_db=combined_db,
                 )
 
+            # ── Phase 4: Run Elo-MMR math engine ────────────────────────────
             engine = RatingEngine()
-            predictions = engine.calculate(participants, saturday_cache, _global_wednesday_db)
+            predictions = engine.calculate(participants, saturday_cache, combined_db)
 
             _prediction_cache[cache_key] = predictions
             _scrape_progress[contest_slug]["status"] = "done"

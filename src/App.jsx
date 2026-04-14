@@ -187,8 +187,8 @@ const App = () => {
   const handleRowClick = (user) => { setSelectedUser(user); setIsSheetOpen(true); };
   const handleContestSelect = (c) => { setSelectedContest(c); setDropdownOpen(false); setSearch(''); };
 
-  const isLive    = status === 'done';
-  const isScraping = status === 'scraping';
+  const isLive     = status === 'done';
+  const isScraping = status === 'scraping' || status === 'fetching_ratings';
   const isLoading  = status === 'loading' || (status === 'idle' && !!selectedContest);
 
   return (
@@ -280,7 +280,7 @@ const App = () => {
                    color:        isLive ? '#34d399'                : isScraping ? '#fbbf24'                : '#f43f5e',
                  }}>
               {isLive ? <Wifi className="w-3 h-3" /> : isScraping ? <Loader2 className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
-              <span>{isLive ? 'LIVE' : isScraping ? 'SCRAPING' : status === 'loading' ? 'LOADING' : 'OFFLINE'}</span>
+              <span>{isLive ? 'LIVE' : status === 'fetching_ratings' ? 'FETCHING RATINGS' : isScraping ? 'SCRAPING' : status === 'loading' ? 'LOADING' : 'OFFLINE'}</span>
             </div>
             <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 overflow-hidden cursor-pointer">
               <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="avatar" className="w-full h-full" />
@@ -298,7 +298,8 @@ const App = () => {
             <h2 className="text-2xl font-bold tracking-tight">High-Performance Data Table</h2>
             <p className="text-slate-500 text-sm mt-1">
               {isLoading  && 'Connecting to backend...'}
-              {isScraping && <span className="text-amber-400">Turbo scraping in progress — {progress.pct}% ({progress.pages_done}/{progress.total_pages} pages)</span>}
+              {status === 'scraping' && <span className="text-amber-400">Turbo scraping in progress — {progress.pct}% ({progress.pages_done}/{progress.total_pages} pages)</span>}
+              {status === 'fetching_ratings' && <span className="text-amber-400">JIT GraphQL Fetch in progress — resolving real baseline ratings...</span>}
               {isLive     && `${filtered.length.toLocaleString()} of ${meta.total.toLocaleString()} participants · ${meta.contest}`}
               {status === 'error' && <span className="text-rose-500">Error: {error}</span>}
             </p>
@@ -318,14 +319,20 @@ const App = () => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                  <span className="text-sm font-semibold text-amber-400">Turbo Scraping in Progress</span>
+                  <span className="text-sm font-semibold text-amber-400">
+                    {status === 'fetching_ratings' ? 'Resolving Real Ratings...' : 'Turbo Scraping in Progress'}
+                  </span>
                 </div>
                 <span className="text-xs font-mono text-slate-500">
-                  {progress.pages_done} / {progress.total_pages || '?'} pages · ETA ~{
-                    progress.total_pages
-                      ? Math.max(0, Math.round((progress.total_pages - progress.pages_done) * 0.65 / 60))
-                      : '?'
-                  } min
+                  {status === 'fetching_ratings' ? (
+                    'Dynamic Fetch'
+                  ) : (
+                    <>{progress.pages_done} / {progress.total_pages || '?'} pages · ETA ~{
+                      progress.total_pages
+                        ? Math.max(0, Math.round((progress.total_pages - progress.pages_done) * 0.65 / 60))
+                        : '?'
+                    } min</>
+                  )}
                 </span>
               </div>
               {/* Progress track */}
@@ -337,8 +344,9 @@ const App = () => {
                   style={{ background: 'linear-gradient(90deg, #f97316, #fbbf24)' }} />
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                Using Turbo Stealth profile (12 concurrent · chrome120 impersonation).
-                Results will auto-load when complete.
+                {status === 'fetching_ratings' 
+                  ? 'Packing users into JIT GraphQL batch requests (15 concurrently) to gather baseline ratings.'
+                  : 'Using Turbo Stealth profile (12 concurrent · chrome120 impersonation). Results will auto-load when complete.'}
               </p>
             </motion.div>
           )}

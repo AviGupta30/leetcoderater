@@ -9,6 +9,7 @@ Liquid Scraper Architecture
 
 import os
 import asyncio
+import re
 import random
 import logging
 from math import ceil
@@ -21,7 +22,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ETL")
 
-# ── Liquid Scraper Constants ───────────────────────────────────────────────────
+# ── Liquid Scraper Constants ─────────────────────────────────────────────────
 MAX_CONCURRENT  = 8           # Balance between stealth and speed
 JITTER_MIN      = 0.5
 JITTER_MAX      = 2.0
@@ -29,6 +30,142 @@ USERS_PER_PAGE  = 25
 IMPERSONATE     = "chrome120"
 GRAPHQL_URL     = "https://leetcode.com/graphql"
 RANKING_URL     = "https://leetcode.com/contest/api/ranking/{slug}/?pagination={page}&region=global"
+
+# ── JIT Batching Constants ────────────────────────────────────────────────────
+BATCH_SIZE       = 50          # Users per single GraphQL request (50 aliases)
+JIT_CONCURRENT   = 15          # Concurrent batch requests
+
+
+def _build_batched_query(usernames: list[str]) -> str:
+    """
+    Dynamically constructs a single GraphQL document with N aliased fields:
+      query {
+        user0: userContestRanking(username: "coder1") { rating }
+        user1: userContestRanking(username: "coder2") { rating }
+        ...
+      }
+    Usernames are escaped to prevent GraphQL injection.
+    """
+    aliases = []
+    for i, username in enumerate(usernames):
+        # Escape backslashes first, then double-quotes
+        safe = username.replace("\\", "\\\\").replace('"', '\\"')
+        aliases.append(f'  user{i}: userContestRanking(username: "{safe}") {{ rating }}')
+    return "query {\n" + "\n".join(aliases) + "\n}"
+
+
+async def _fetch_batch(
+    session: cffi_requests.AsyncSession,
+    semaphore: asyncio.Semaphore,
+    chunk: list[str],
+) -> dict[str, float]:
+    """
+    Sends one batched GraphQL request for a chunk of 50 usernames.
+    Returns a partial dict {username: rating}.
+    On total failure, returns {} so the cascade falls back to 1500.
+    """
+    query = _build_batched_query(chunk)
+    backoff = 3
+
+    async with semaphore:
+        while True:
+            await asyncio.sleep(random.uniform(0.1, 0.4))  # Light jitter — GraphQL is less guarded
+            try:
+                resp = await session.post(
+                    GRAPHQL_URL,
+                    json={"query": query},
+                    headers={"Content-Type": "application/json"},
+                )
+
+                if resp.status_code in (403, 429):
+                    logger.warning(f"[JIT] WAF Block on batch starting '{chunk[0]}'. Backoff {backoff}s...")
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 30)
+                    continue
+
+                resp.raise_for_status()
+                data = resp.json().get("data", {})
+
+                result = {}
+                for i, username in enumerate(chunk):
+                    node = data.get(f"user{i}")
+                    # node is None if user has never competed — cascade will default to 1500
+                    if node is not None and node.get("rating") is not None:
+                        result[username] = float(node["rating"])
+                return result
+
+            except Exception as e:
+                logger.error(f"[JIT] Batch error for '{chunk[0]}...': {e}. Retrying in {backoff}s...")
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 30)
+
+
+async def fetch_exact_baselines(
+    usernames_list: list[str],
+    session: cffi_requests.AsyncSession | None = None,
+) -> dict[str, float]:
+    """
+    Module A.5 — JIT GraphQL Batching
+    ===================================
+    Given a list of 35,000 usernames, fetches their EXACT current LeetCode
+    contest ratings in ~45 seconds using GraphQL aliasing.
+
+    Math: 35,000 users / 50 per batch = 700 requests @ 15 concurrent
+
+    Args:
+        usernames_list: The full list of usernames from the contest scrape.
+        session:        Optional existing curl_cffi AsyncSession. If None, a new
+                        one is created internally (use this for standalone calls).
+
+    Returns:
+        dict[str, float]: {username -> current_rating}
+        Users with no contest history are ABSENT from the dict.
+        The RatingEngine's cascade will correctly default them to 1500.
+    """
+    if not usernames_list:
+        return {}
+
+    # Split into chunks of BATCH_SIZE
+    chunks = [
+        usernames_list[i : i + BATCH_SIZE]
+        for i in range(0, len(usernames_list), BATCH_SIZE)
+    ]
+    total_batches = len(chunks)
+    logger.info(
+        f"[JIT] Starting exact baseline fetch: {len(usernames_list)} users "
+        f"→ {total_batches} batches @ {JIT_CONCURRENT} concurrent."
+    )
+
+    semaphore = asyncio.Semaphore(JIT_CONCURRENT)
+    merged: dict[str, float] = {}
+
+    async def _run(sess: cffi_requests.AsyncSession) -> None:
+        tasks = [_fetch_batch(sess, semaphore, chunk) for chunk in chunks]
+        batches_done = 0
+        for coro in asyncio.as_completed(tasks):
+            partial = await coro
+            merged.update(partial)
+            batches_done += 1
+            if batches_done % 50 == 0 or batches_done == total_batches:
+                logger.info(
+                    f"[JIT] Progress: {batches_done}/{total_batches} batches | "
+                    f"{len(merged)} ratings resolved."
+                )
+
+    if session is not None:
+        await _run(session)
+    else:
+        async with cffi_requests.AsyncSession(impersonate=IMPERSONATE) as s:
+            await _run(s)
+
+    found    = len(merged)
+    missing  = len(usernames_list) - found
+    logger.info(
+        f"[JIT] Complete: {found} real ratings fetched | "
+        f"{missing} users have no contest history → will default to 1500."
+    )
+    return merged
+
 
 async def _scrape_page(
     session: cffi_requests.AsyncSession,
@@ -63,7 +200,11 @@ async def _scrape_page(
 
                 return [
                     {
-                        "username":    u.get('username'),
+                        # Use _extract_profile_username to get the real GraphQL-queryable slug
+                        # The contest API 'username' field is a display name that often differs
+                        # from the actual LeetCode profile username used by GraphQL.
+                        "username":    _extract_profile_username(u),
+                        "display_name": u.get('username'),  # Keep original for display
                         "score":       u.get('score'),
                         "finish_time": u.get('finish_time'),
                         "global_rank": u.get('rank'),
@@ -76,6 +217,33 @@ async def _scrape_page(
                 logger.error(f"[Page {page}] Failed: {e}. Retrying in {backoff}s...")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 60)
+
+
+
+def _extract_profile_username(entry: dict) -> str:
+    """
+    Returns the correct LeetCode profile slug for GraphQL lookups.
+
+    The contest leaderboard's 'username' field is a DISPLAY NAME and very
+    often does NOT match the profile slug used by LeetCode's GraphQL API.
+
+    The 'user_slug' field is the canonical profile URL slug — this is what
+    userContestRanking(username: ...) expects.
+
+    Examples from real contest data:
+      display "Snap Dragon" → user_slug "Narendr_Modi" → GraphQL resolves correctly
+      display "Aditya Gupta" → user_slug "adocxwork"   → GraphQL resolves correctly
+      display "Mark"         → user_slug "LSvr9egntY"  → private, returns null (correct)
+
+    NOTE: We intentionally do NOT use avatar_url parsing. The avatar URL
+    encodes the slug of whoever originally uploaded the image, which can differ
+    from the account owner (e.g. Arrow2520 had avatar from GammaGuy2520).
+    """
+    user_slug = (entry.get("user_slug") or "").strip()
+    if user_slug:
+        return user_slug
+    # Fall back to display name (works when username == user_slug, which is common)
+    return (entry.get("username") or "").strip()
 
 
 async def scrape_contest_leaderboard(

@@ -7,7 +7,7 @@ Designed to process 35,000+ participants in under 1 second.
 Algorithm:
   Phase 1 – Baseline Resolution (Cascade: Saturday Cache > Wednesday DB > 1500.0)
   Phase 2 – Histogram Interpolation (O(K × |X|) instead of O(N²))
-  Phase 3 – Post-Processing: Volatility Weighting + Zero-Sum Drift Correction
+  Phase 3 – Post-Processing: Volatility Weighting + Zero-Sum Drift Correction + Dampener
 """
 
 import time
@@ -49,6 +49,9 @@ class RatingEngine:
 
     # Chunk size for memory-safe matrix multiply (|X_chunk| × K per pass)
     CHUNK_SIZE = 500
+    
+    # Dampening factor applied strictly to negative rating changes
+    NEGATIVE_DAMPENING_FACTOR = 0.6
 
     # ─── Public Interface ────────────────────────────────────────────────────────
 
@@ -101,7 +104,7 @@ class RatingEngine:
         t2 = time.perf_counter()
         delta_final = self._apply_drift_correction(delta_raw)
         predicted_ratings = r_initial + delta_final
-        logger.info(f"Phase 3 (Drift Correction) completed in {time.perf_counter() - t2:.4f}s")
+        logger.info(f"Phase 3 (Drift Correction & Dampening) completed in {time.perf_counter() - t2:.4f}s")
 
         results = []
         for i in range(n):
@@ -256,19 +259,27 @@ class RatingEngine:
 
     def _apply_drift_correction(self, weighted_delta: np.ndarray) -> np.ndarray:
         """
-        Zero-sum ecosystem correction.
+        Zero-sum ecosystem correction + Negative Dampening.
 
         The sum of all raw Δ drifts away from zero because the participant histogram
         is asymmetric. We subtract the mean drift so the system is rating-conserving.
-
-        Δ_final = Δ_raw − mean(Δ_raw)
+        Then, we apply a safety net (dampening factor) to strictly negative deltas.
         """
         # STEP 2: Calculate Global Drift (Center of Mass)
         drift = np.mean(weighted_delta)
         logger.info(f"Phase 3 — Drift correction: mean drift = {drift:.4f} rating points.")
         
-        # STEP 3: Apply Zero-Sum Correction (Final Loop)
+        # STEP 3: Apply Zero-Sum Correction
         final_predicted_delta = weighted_delta - drift
+
+        # STEP 4: Apply Dampening Factor ONLY to negative drops
+        negative_mask = final_predicted_delta < 0
+        neg_count = np.sum(negative_mask)
+        logger.info(f"Phase 3 — Applying {self.NEGATIVE_DAMPENING_FACTOR}x Dampener to {neg_count} negative deltas.")
+        
+        # Multiply all negative deltas by 0.6
+        final_predicted_delta[negative_mask] *= self.NEGATIVE_DAMPENING_FACTOR
+
         return final_predicted_delta
 
 
@@ -313,4 +324,4 @@ if __name__ == "__main__":
         )
 
     total_delta = sum(r["predicted_delta"] for r in results)
-    logger.info(f"Zero-sum check: Σ(Δ_final) = {total_delta:.4f} (should be ~0.00)")
+    logger.info(f"Zero-sum check post-dampening: Σ(Δ_final) = {total_delta:.4f}")

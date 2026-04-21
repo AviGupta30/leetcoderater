@@ -11,9 +11,9 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:8000';
+const API_BASE = 'https://leetcode-rating-predictor.onrender.com';
 const TOP_RANK_N = 3;
-const POLL_MS    = 2500;   // progress poll interval (ms)
+const POLL_MS = 2500;   // progress poll interval (ms)
 
 // ─── Utility: format Unix epoch or duration → HH:MM:SS ───────────────────────
 function fmtTime(ts) {
@@ -32,7 +32,7 @@ function fmtTime(ts) {
 // ────────────────────────────────────────────────────────────────────────────────
 function useContests() {
   const [contests, setContests] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE}/contests/latest`)
@@ -44,9 +44,9 @@ function useContests() {
       .catch(() => {
         // Graceful fallback so the UI never fully breaks
         setContests([
-          { title: 'Weekly Contest 400',   slug: 'weekly-contest-400'   },
+          { title: 'Weekly Contest 400', slug: 'weekly-contest-400' },
           { title: 'Biweekly Contest 130', slug: 'biweekly-contest-130' },
-          { title: 'Weekly Contest 399',   slug: 'weekly-contest-399'   },
+          { title: 'Weekly Contest 399', slug: 'weekly-contest-399' },
         ]);
         setLoading(false);
       });
@@ -59,11 +59,11 @@ function useContests() {
 // Hook: usePredictions — fetch + poll progress + handle 202 "scraping" state
 // ────────────────────────────────────────────────────────────────────────────────
 function usePredictions(contestSlug) {
-  const [data,     setData]     = useState([]);
-  const [status,   setStatus]   = useState('idle');   // idle | loading | scraping | done | error
-  const [error,    setError]    = useState(null);
+  const [data, setData] = useState([]);
+  const [status, setStatus] = useState('idle');   // idle | loading | scraping | done | error
+  const [error, setError] = useState(null);
   const [progress, setProgress] = useState({ pct: 0, pages_done: 0, total_pages: 0 });
-  const [meta,     setMeta]     = useState({ total: 0, contest: '' });
+  const [meta, setMeta] = useState({ total: 0, contest: '' });
   const pollRef = useRef(null);
 
   const stopPolling = () => {
@@ -74,7 +74,7 @@ function usePredictions(contestSlug) {
     stopPolling();
     pollRef.current = setInterval(async () => {
       try {
-        const r    = await fetch(`${API_BASE}/predict/${slug}/progress`);
+        const r = await fetch(`${API_BASE}/predict/${slug}/progress`);
         const prog = await r.json();
         setProgress({ pct: prog.pct, pages_done: prog.pages_done, total_pages: prog.total_pages });
 
@@ -87,7 +87,7 @@ function usePredictions(contestSlug) {
           setStatus('error');
           setError('Scrape failed on the server. Check backend logs.');
         }
-      } catch {/* ignore poll errors */}
+      } catch {/* ignore poll errors */ }
     }, POLL_MS);
   }, []);
 
@@ -156,10 +156,10 @@ function usePredictions(contestSlug) {
 // Root App
 // ────────────────────────────────────────────────────────────────────────────────
 const App = () => {
-  const [search,        setSearch]        = useState('');
-  const [selectedUser,  setSelectedUser]  = useState(null);
-  const [isSheetOpen,   setIsSheetOpen]   = useState(false);
-  const [dropdownOpen,  setDropdownOpen]  = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedContest, setSelectedContest] = useState(null);
 
   const { contests, loading: contestsLoading } = useContests();
@@ -187,18 +187,18 @@ const App = () => {
   const handleRowClick = (user) => { setSelectedUser(user); setIsSheetOpen(true); };
   const handleContestSelect = (c) => { setSelectedContest(c); setDropdownOpen(false); setSearch(''); };
 
-  const isLive     = status === 'done';
+  const isLive = status === 'done';
   const isScraping = status === 'scraping' || status === 'fetching_ratings';
-  const isLoading  = status === 'loading' || (status === 'idle' && !!selectedContest);
+  const isLoading = status === 'loading' || (status === 'idle' && !!selectedContest);
 
   return (
     <div className="min-h-screen text-slate-100 flex flex-col bg-cover bg-fixed bg-center bg-no-repeat"
-         style={{ backgroundImage: "url('/bg_map.png')", backgroundColor: '#050a11', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      style={{ backgroundImage: "url('/bg_map.png')", backgroundColor: '#050a11', fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-[#121821] border-b border-[#1E293B]/70 shadow-xl h-14">
         <div className="max-w-[1920px] mx-auto px-6 h-full flex items-center justify-between">
-          
+
           {/* Left Area: Logo, Shield, Dropdown */}
           <div className="flex items-center">
             {/* Logo */}
@@ -214,20 +214,20 @@ const App = () => {
             {/* Overlapping Shield Badge */}
             <div className="relative mx-5">
               <div className="absolute top-[-26px] left-0 w-[42px] h-[52px] bg-gradient-to-b from-[#374151] to-[#1F2937] flex justify-center items-center z-50 shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
-                   style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)' }}>
-                 <div className="w-[38px] h-[48px] bg-gradient-to-b from-[#2B3544] to-[#1C2532] flex flex-col justify-center items-center pb-1" 
-                      style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)', marginTop: '-2px' }}>
-                   <Trophy className="w-[18px] h-[18px] text-[#F97316]" style={{ filter: 'drop-shadow(0 2px 4px rgba(249,115,22,0.4))' }} />
-                   <div className="text-white text-[8px] opacity-70 mt-0.5">★</div>
-                 </div>
+                style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)' }}>
+                <div className="w-[38px] h-[48px] bg-gradient-to-b from-[#2B3544] to-[#1C2532] flex flex-col justify-center items-center pb-1"
+                  style={{ clipPath: 'polygon(50% 100%, 100% 75%, 100% 0, 0 0, 0 75%)', marginTop: '-2px' }}>
+                  <Trophy className="w-[18px] h-[18px] text-[#F97316]" style={{ filter: 'drop-shadow(0 2px 4px rgba(249,115,22,0.4))' }} />
+                  <div className="text-white text-[8px] opacity-70 mt-0.5">★</div>
+                </div>
               </div>
-              <div className="w-[42px]"></div> 
+              <div className="w-[42px]"></div>
             </div>
 
             {/* Contest Dropdown */}
             <div className="relative shrink-0 ml-[10px] w-48">
               <button onClick={() => setDropdownOpen(v => !v)}
-                      className="w-full h-[30px] flex items-center justify-between px-3 rounded text-[11px] font-semibold bg-[#222A38] border border-[#2F3A4C] text-slate-300 hover:bg-[#2A3445] transition-all">
+                className="w-full h-[30px] flex items-center justify-between px-3 rounded text-[11px] font-semibold bg-[#222A38] border border-[#2F3A4C] text-slate-300 hover:bg-[#2A3445] transition-all">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-3 h-3 text-[#F97316]" />
                   <span className="truncate">{contestsLoading ? 'Loading...' : selectedContest?.title ?? 'Select Contest'}</span>
@@ -242,11 +242,11 @@ const App = () => {
                     {contestsLoading
                       ? <div className="px-4 py-3 text-xs text-slate-500 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading...</div>
                       : contests.map(c => (
-                          <button key={c.slug} onClick={() => handleContestSelect(c)}
-                                  className={cn("w-full text-left px-3 py-2 text-[11px] hover:bg-[#1F2937]", selectedContest?.slug === c.slug ? "text-[#F97316]" : "text-slate-300")}>
-                            {c.title}
-                          </button>
-                        ))}
+                        <button key={c.slug} onClick={() => handleContestSelect(c)}
+                          className={cn("w-full text-left px-3 py-2 text-[11px] hover:bg-[#1F2937]", selectedContest?.slug === c.slug ? "text-[#F97316]" : "text-slate-300")}>
+                          {c.title}
+                        </button>
+                      ))}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -255,13 +255,13 @@ const App = () => {
 
           {/* Right Area: Search, Refresh, Live, Avatar */}
           <div className="flex items-center gap-5 flex-1 justify-end">
-            
+
             {/* Styled Search Bar */}
             <div className="relative w-[340px] group hidden lg:block group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-[#37B5AC] transition-colors" />
               <input type="text" placeholder="Search username or rank..."
-                     value={search} onChange={e => setSearch(e.target.value)}
-                     className="w-full h-8 pl-9 pr-4 rounded text-[11px] text-slate-200 placeholder-slate-600
+                value={search} onChange={e => setSearch(e.target.value)}
+                className="w-full h-8 pl-9 pr-4 rounded text-[11px] text-slate-200 placeholder-slate-600
                                 bg-[#1A222D] border border-transparent outline-none shadow-inner
                                 focus:bg-[#1E2835] transition-all" />
               <div className="absolute -bottom-[0px] left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-[#37B5AC] to-transparent opacity-80" />
@@ -272,14 +272,14 @@ const App = () => {
               <button onClick={refetch} disabled={isScraping || isLoading} className="group">
                 <RefreshCw className={cn("w-4 h-4 text-slate-500 group-hover:text-white transition", (isScraping || isLoading) && "animate-spin")} />
               </button>
-              
+
               <div className="flex items-center gap-1 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full"
-                   style={{
-                     background:   isLive ? 'rgba(55,181,172,0.1)' : isScraping ? 'rgba(251,191,36,0.1)' : 'rgba(217,69,91,0.1)',
-                     borderColor:  isLive ? 'rgba(55,181,172,0.3)' : isScraping ? 'rgba(251,191,36,0.3)' : 'rgba(217,69,91,0.3)',
-                     borderWidth: 1,
-                     color:        isLive ? '#37B5AC'               : isScraping ? '#FBBF24'               : '#D9455B',
-                   }}>
+                style={{
+                  background: isLive ? 'rgba(55,181,172,0.1)' : isScraping ? 'rgba(251,191,36,0.1)' : 'rgba(217,69,91,0.1)',
+                  borderColor: isLive ? 'rgba(55,181,172,0.3)' : isScraping ? 'rgba(251,191,36,0.3)' : 'rgba(217,69,91,0.3)',
+                  borderWidth: 1,
+                  color: isLive ? '#37B5AC' : isScraping ? '#FBBF24' : '#D9455B',
+                }}>
                 {isLive ? <Wifi className="w-2.5 h-2.5" /> : isScraping ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <WifiOff className="w-2.5 h-2.5" />}
                 <span>{isLive ? '1 TVF' : status === 'fetching_ratings' ? 'FETCH' : isScraping ? 'SCRAPE' : 'OFF'}</span>
               </div>
@@ -301,10 +301,10 @@ const App = () => {
           <div className="z-10 bg-[#0A111A]/60 backdrop-blur-md pb-2 pr-4 rounded-xl">
             <h2 className="text-2xl font-bold tracking-tight">High-Performance Data Table</h2>
             <p className="text-slate-500 text-sm mt-1">
-              {isLoading  && 'Connecting to backend...'}
+              {isLoading && 'Connecting to backend...'}
               {status === 'scraping' && <span className="text-amber-400">Turbo scraping in progress — {progress.pct}% ({progress.pages_done}/{progress.total_pages} pages)</span>}
               {status === 'fetching_ratings' && <span className="text-amber-400">JIT GraphQL Fetch in progress — resolving real baseline ratings...</span>}
-              {isLive     && `${filtered.length.toLocaleString()} of ${meta.total.toLocaleString()} participants · ${meta.contest}`}
+              {isLive && `${filtered.length.toLocaleString()} of ${meta.total.toLocaleString()} participants · ${meta.contest}`}
               {status === 'error' && <span className="text-rose-500">Error: {error}</span>}
             </p>
           </div>
@@ -319,8 +319,8 @@ const App = () => {
         <AnimatePresence>
           {isScraping && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                        className="mb-6 rounded-2xl border border-amber-500/20 p-5"
-                        style={{ background: 'rgba(251,191,36,0.05)' }}>
+              className="mb-6 rounded-2xl border border-amber-500/20 p-5"
+              style={{ background: 'rgba(251,191,36,0.05)' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
@@ -349,7 +349,7 @@ const App = () => {
                   style={{ background: 'linear-gradient(90deg, #f97316, #fbbf24)' }} />
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                {status === 'fetching_ratings' 
+                {status === 'fetching_ratings'
                   ? 'Packing users into JIT GraphQL batch requests (15 concurrently) to gather baseline ratings.'
                   : 'Using Turbo Stealth profile (12 concurrent · chrome120 impersonation). Results will auto-load when complete.'}
               </p>
@@ -361,14 +361,14 @@ const App = () => {
           {/* Player Focus Left Bar */}
           <AnimatePresence>
             {selectedUser && (
-              <motion.div 
-                initial={{ width: 0, opacity: 0, marginLeft: 0 }} 
-                animate={{ width: 350, opacity: 1, marginLeft: 0 }} 
-                exit={{ width: 0, opacity: 0, marginLeft: -24 }} 
+              <motion.div
+                initial={{ width: 0, opacity: 0, marginLeft: 0 }}
+                animate={{ width: 350, opacity: 1, marginLeft: 0 }}
+                exit={{ width: 0, opacity: 0, marginLeft: -24 }}
                 transition={{ duration: 0.3 }}
                 className="shrink-0 overflow-hidden">
                 <div className="w-[350px]">
-                   <UserDetailSidebar user={selectedUser} totalParticipants={meta.total} onClose={() => setSelectedUser(null)} />
+                  <UserDetailSidebar user={selectedUser} totalParticipants={meta.total} onClose={() => setSelectedUser(null)} />
                 </div>
               </motion.div>
             )}
@@ -376,12 +376,12 @@ const App = () => {
 
           {/* Table card */}
           <div className="flex-1 w-full min-w-0 border border-[#37B5AC]/40 rounded-2xl overflow-hidden shadow-[0_0_25px_rgba(55,181,172,0.15)] relative"
-               style={{ background: 'rgba(15,22,35,0.7)', transition: 'all 0.3s' }}>
+            style={{ background: 'rgba(15,22,35,0.7)', transition: 'all 0.3s' }}>
             {(isLoading || status === 'idle') ? <SkeletonTable />
-              : isScraping                    ? <ScrapingPlaceholder pct={progress.pct} />
-              : status === 'error'            ? <ErrorState message={error} onRetry={refetch} />
-              : filtered.length === 0         ? <EmptyState />
-              : <LeaderboardTable users={filtered} onRowClick={(u) => setSelectedUser(u)} />
+              : isScraping ? <ScrapingPlaceholder pct={progress.pct} />
+                : status === 'error' ? <ErrorState message={error} onRetry={refetch} />
+                  : filtered.length === 0 ? <EmptyState />
+                    : <LeaderboardTable users={filtered} onRowClick={(u) => setSelectedUser(u)} />
             }
           </div>
         </div>
@@ -410,7 +410,7 @@ const LeaderboardTable = ({ users, onRowClick }) => {
       <div style={{ minWidth: 800 }}>
         {/* Header */}
         <div className={cn('sticky top-0 z-10 grid gap-4 px-6 py-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500', COL)}
-             style={{ background: 'rgba(15,23,42,0.97)', backdropFilter: 'blur(8px)' }}>
+          style={{ background: 'rgba(15,23,42,0.97)', backdropFilter: 'blur(8px)' }}>
           <div>Rank</div><div>Username</div><div>Score</div>
           <div>Finish Time</div><div>Prev Rating</div><div>Delta</div><div>Pred Rating</div>
         </div>
@@ -418,19 +418,19 @@ const LeaderboardTable = ({ users, onRowClick }) => {
         {/* Rows */}
         <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
           {rowVirtualizer.getVirtualItems().map(vRow => {
-            const u     = users[vRow.index];
+            const u = users[vRow.index];
             const isTop = u.global_rank <= TOP_RANK_N;
             const isPos = u.predicted_delta >= 0;
             return (
               <div key={vRow.key} data-index={vRow.index} ref={rowVirtualizer.measureElement}
-                   onClick={() => onRowClick(u)}
-                   className={cn('absolute top-0 left-0 w-full grid gap-4 px-6 py-3.5 border-b cursor-pointer transition-all group', COL,
-                     isTop ? 'border-[#37B5AC]/30 hover:bg-[#37B5AC]/10 z-10' : 'border-slate-700/30 hover:bg-[#1A2633]')}
-                   style={{
-                     transform: `translateY(${vRow.start}px)`,
-                     background: isTop ? 'rgba(55,181,172,0.05)' : undefined,
-                     boxShadow:  isTop ? 'inset 3px 0 0 0 rgba(55,181,172,0.8)' : undefined,
-                   }}>
+                onClick={() => onRowClick(u)}
+                className={cn('absolute top-0 left-0 w-full grid gap-4 px-6 py-3.5 border-b cursor-pointer transition-all group', COL,
+                  isTop ? 'border-[#37B5AC]/30 hover:bg-[#37B5AC]/10 z-10' : 'border-slate-700/30 hover:bg-[#1A2633]')}
+                style={{
+                  transform: `translateY(${vRow.start}px)`,
+                  background: isTop ? 'rgba(55,181,172,0.05)' : undefined,
+                  boxShadow: isTop ? 'inset 3px 0 0 0 rgba(55,181,172,0.8)' : undefined,
+                }}>
                 {/* Rank */}
                 <div className={cn('font-mono font-semibold text-sm flex items-center gap-1', isTop ? 'text-[#FBBF24]' : 'text-slate-500')}>
                   {isTop && <Trophy className="w-3 h-3" />}{u.global_rank}
@@ -454,15 +454,17 @@ const LeaderboardTable = ({ users, onRowClick }) => {
                     {isPos ? `+${u.predicted_delta.toFixed(1)} ▲` : `${u.predicted_delta.toFixed(1)} ▼`}
                   </span>
                   <div className="w-8 h-3.5 bg-[#202937] rounded-full relative shrink-0"
-                       style={{ border: isPos ? '1px solid rgba(55,181,172,0.6)' : '1px solid rgba(217,69,91,0.6)',
-                                boxShadow: isPos ? '0 0 8px rgba(55,181,172,0.4)' : '0 0 8px rgba(217,69,91,0.4)' }}>
+                    style={{
+                      border: isPos ? '1px solid rgba(55,181,172,0.6)' : '1px solid rgba(217,69,91,0.6)',
+                      boxShadow: isPos ? '0 0 8px rgba(55,181,172,0.4)' : '0 0 8px rgba(217,69,91,0.4)'
+                    }}>
                     <div className={cn("absolute top-[1.5px] bottom-[1.5px] w-[14px] rounded-full", isPos ? "bg-[#37B5AC] right-[1.5px]" : "bg-[#D9455B] left-[1.5px]")}
-                         style={{ boxShadow: isPos ? '0 0 6px rgba(55,181,172,0.8)' : '0 0 6px rgba(217,69,91,0.8)' }}></div>
+                      style={{ boxShadow: isPos ? '0 0 6px rgba(55,181,172,0.8)' : '0 0 6px rgba(217,69,91,0.8)' }}></div>
                   </div>
                 </div>
                 {/* Predicted Rating */}
                 <div className="font-bold font-mono text-sm text-[#FBBF24]"
-                     style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.3))' }}>
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.3))' }}>
                   {u.predicted_rating.toFixed(0)}
                 </div>
               </div>
@@ -503,79 +505,79 @@ const RadarChart = () => (
 const UserDetailSidebar = ({ user, totalParticipants, onClose }) => {
   const isPos = user.predicted_delta >= 0;
   return (
-      <div className="flex flex-col border border-slate-700/50 rounded-2xl shadow-[0_0_30px_rgba(45,212,191,0.05)] h-[72vh] overflow-hidden"
-           style={{ background: 'rgba(15,22,35,0.7)', backdropFilter: 'blur(20px)' }}>
-        {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between border-b border-white/5">
-           <span className="font-semibold text-white tracking-wide text-sm">Player Focus</span>
-           <button onClick={onClose}><ChevronDown className="w-4 h-4 text-slate-500 -rotate-90 hover:text-white" /></button>
+    <div className="flex flex-col border border-slate-700/50 rounded-2xl shadow-[0_0_30px_rgba(45,212,191,0.05)] h-[72vh] overflow-hidden"
+      style={{ background: 'rgba(15,22,35,0.7)', backdropFilter: 'blur(20px)' }}>
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between border-b border-white/5">
+        <span className="font-semibold text-white tracking-wide text-sm">Player Focus</span>
+        <button onClick={onClose}><ChevronDown className="w-4 h-4 text-slate-500 -rotate-90 hover:text-white" /></button>
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-auto p-5 flex flex-col gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-2 border-[#2DD4BF] p-0.5 overflow-hidden shadow-[0_0_10px_rgba(45,212,191,0.4)]">
+            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="w-full h-full rounded-full bg-slate-800" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-base tracking-wide truncate max-w-[180px]">{user.username}</h3>
+            <p className="text-[11px] text-slate-500 uppercase tracking-widest mt-0.5">Avatar</p>
+          </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-auto p-5 flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full border-2 border-[#2DD4BF] p-0.5 overflow-hidden shadow-[0_0_10px_rgba(45,212,191,0.4)]">
-               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} className="w-full h-full rounded-full bg-slate-800" />
-            </div>
-            <div>
-              <h3 className="font-bold text-white text-base tracking-wide truncate max-w-[180px]">{user.username}</h3>
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest mt-0.5">Avatar</p>
-            </div>
-          </div>
+        <div className="h-32 flex justify-center items-center">
+          <RadarChart />
+        </div>
 
-          <div className="h-32 flex justify-center items-center">
-            <RadarChart />
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between items-end mb-1">
-                <span className="text-xs font-semibold text-[#2DD4BF]">Speed</span>
-                <span className="text-[10px] text-slate-400 font-mono">{fmtTime(user.finish_time)}</span>
-              </div>
-              <div className="h-1 bg-[#1A283B] rounded">
-                <div className="h-full bg-[#2DD4BF] rounded shadow-[0_0_8px_#2DD4BF]" style={{ width: `${Math.max(5, 100 - (user.finish_time / 5400) * 100)}%` }}></div>
-              </div>
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-end mb-1">
+              <span className="text-xs font-semibold text-[#2DD4BF]">Speed</span>
+              <span className="text-[10px] text-slate-400 font-mono">{fmtTime(user.finish_time)}</span>
             </div>
-            <div>
-              <div className="flex justify-between items-end mb-1">
-                <span className="text-xs font-semibold text-[#60A5FA]">Problem Solving</span>
-                <span className="text-[10px] text-slate-400 font-mono">Score: {user.score ?? 0}</span>
-              </div>
-              <div className="h-1 bg-[#1A283B] rounded">
-                <div className="h-full bg-[#60A5FA] rounded shadow-[0_0_8px_#60A5FA]" style={{ width: `${Math.min(100, Math.max(5, ((user.score || 0) / 25) * 100))}%` }}></div>
-              </div>
+            <div className="h-1 bg-[#1A283B] rounded">
+              <div className="h-full bg-[#2DD4BF] rounded shadow-[0_0_8px_#2DD4BF]" style={{ width: `${Math.max(5, 100 - (user.finish_time / 5400) * 100)}%` }}></div>
             </div>
           </div>
+          <div>
+            <div className="flex justify-between items-end mb-1">
+              <span className="text-xs font-semibold text-[#60A5FA]">Problem Solving</span>
+              <span className="text-[10px] text-slate-400 font-mono">Score: {user.score ?? 0}</span>
+            </div>
+            <div className="h-1 bg-[#1A283B] rounded">
+              <div className="h-full bg-[#60A5FA] rounded shadow-[0_0_8px_#60A5FA]" style={{ width: `${Math.min(100, Math.max(5, ((user.score || 0) / 25) * 100))}%` }}></div>
+            </div>
+          </div>
+        </div>
 
-          <div className="pt-4 border-t border-white/5">
-             <h4 className="text-xs font-semibold text-slate-300 mb-3">Real-Time Performance</h4>
-             <div className="flex flex-col gap-2.5">
-               <div className="flex justify-between items-center text-[10px] font-mono">
-                 <span className="text-[#60A5FA]">Time Taken</span>
-                 <span className="text-slate-500">{fmtTime(user.finish_time)}</span>
-               </div>
-             </div>
+        <div className="pt-4 border-t border-white/5">
+          <h4 className="text-xs font-semibold text-slate-300 mb-3">Real-Time Performance</h4>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex justify-between items-center text-[10px] font-mono">
+              <span className="text-[#60A5FA]">Time Taken</span>
+              <span className="text-slate-500">{fmtTime(user.finish_time)}</span>
+            </div>
           </div>
-          
-          <div className="pt-2">
-             <h4 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Predictive Insights</h4>
-             <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-               Your player insights will show his future performance in this weekend based on continuous metric tracking.
-             </p>
-          </div>
+        </div>
+
+        <div className="pt-2">
+          <h4 className="text-[11px] font-semibold text-slate-300 uppercase tracking-widest">Predictive Insights</h4>
+          <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+            Your player insights will show his future performance in this weekend based on continuous metric tracking.
+          </p>
         </div>
       </div>
+    </div>
   );
 };
 
 // ─── Helper Components ────────────────────────────────────────────────────────
 const MetricCard = ({ label, value, color, glow, bgCol, border }) => (
   <div className="rounded-xl p-3 flex flex-col items-center text-center h-24 justify-between transition-transform hover:scale-105"
-       style={{ background: bgCol || 'rgba(30,41,59,0.5)', border: `1px solid ${border || 'rgba(51,65,85,0.5)'}` }}>
+    style={{ background: bgCol || 'rgba(30,41,59,0.5)', border: `1px solid ${border || 'rgba(51,65,85,0.5)'}` }}>
     <span className="text-[10px] text-slate-400 font-medium leading-tight">{label}</span>
     <span className="text-2xl font-bold"
-          style={{ color: color || '#fff', filter: glow ? `drop-shadow(0 0 8px ${glow})` : undefined }}>
+      style={{ color: color || '#fff', filter: glow ? `drop-shadow(0 0 8px ${glow})` : undefined }}>
       {value}
     </span>
   </div>
@@ -602,7 +604,7 @@ const ScrapingPlaceholder = ({ pct }) => (
       <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(51,65,85,0.5)" strokeWidth="3" />
         <circle cx="18" cy="18" r="15" fill="none" stroke="#f97316" strokeWidth="3"
-                strokeDasharray={`${pct * 0.942} 94.2`} strokeLinecap="round" />
+          strokeDasharray={`${pct * 0.942} 94.2`} strokeLinecap="round" />
       </svg>
       <Loader2 className="absolute inset-0 m-auto w-8 h-8 text-orange-400 animate-spin" />
     </div>
@@ -627,7 +629,7 @@ const EmptyState = () => (
 const ErrorState = ({ message, onRetry }) => (
   <div className="flex flex-col items-center justify-center py-24 gap-4">
     <div className="w-14 h-14 rounded-full flex items-center justify-center"
-         style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
+      style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
       <WifiOff className="w-6 h-6 text-rose-500" />
     </div>
     <div className="text-center">
@@ -635,7 +637,7 @@ const ErrorState = ({ message, onRetry }) => (
       <p className="text-slate-500 text-sm mt-1 font-mono">{message}</p>
     </div>
     <button onClick={onRetry}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
+      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
       <RefreshCw className="w-4 h-4" /> Retry
     </button>
   </div>

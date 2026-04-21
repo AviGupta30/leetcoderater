@@ -11,7 +11,7 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const API_BASE = 'https://leetcode-rating-predictor.onrender.com';
+const API_BASE = 'https://leetcoderatingpredictor.onrender.com';
 const TOP_RANK_N = 3;
 const POLL_MS = 2500;   // progress poll interval (ms)
 
